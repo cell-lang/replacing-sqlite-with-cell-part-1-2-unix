@@ -1,0 +1,248 @@
+using Northwind {
+  // Id, first name and last name of all employees, sorted by last name
+  (EmployeeId, String, String)* sorted_employees_names {
+    unsorted = [(e, first_name(e), last_name(e)) : e <- employee];
+    return sort_by(unsorted, $(2));
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  // Subtotal of a specific product in a given order
+  Float subtotal(OrderId o, ProductId p) =
+    item_unit_price(o, p) * quantity(o, p) * (1 - discount(o, p));
+
+  // Total value of all items in a given order
+  Float total(OrderId o) = sum(subtotal(o, p) : p <- order_detail(o, ?));
+
+  // Totals for all orders in the database
+  (order_id: OrderId, total: Float)* orders_totals {
+    unsorted = [(order_id: o, total: total(o)) : o <- order];
+    return sort_by(unsorted, untag($.order_id));
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  (Date, OrderId, Float)* shipped_orders_totals(Date from, Date to) {
+    // Ids of all orders that were shipped in the given period of time
+    orders = [o : o d <- shipped_date, d >= from, d <= to];
+    // Sorting them by date of shipping
+    orders = sort_by(orders, shipped_date($));
+    // Gathering all the required data
+    return ((shipped_date(o), o, total(o)) : o <- orders);
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  (String, (String, (String, (Int, Float*)*)*)*)* quarterly_orders {
+    // Calculating subtotals
+    subtotals = [];
+    for order product <- order_detail {
+      customer = customer_id(order);
+      date = order_date(order);
+      year = year(date);
+      quarter = quarter(date);
+      subtotal = subtotal(order, product);
+      subtotals = accumulate(subtotals, product, customer,
+                             year, quarter - 1, subtotal);
+    }
+
+    // Sorting and reshuffling the dataset
+    return sort([
+      name(ct) ->
+        sort([
+          product_name(p) ->
+            sort([
+              company_name(c) ->
+                sort([y -> seq(qs, 4, 0.0) : y qs <- yqs])
+              : c yqs <- cyqs
+            ])
+          : p cyqs <- pcyqs
+        ])
+      : ct pcyqs <- group_by(subtotals, category_id($))
+    ]);
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  String quarterly_orders_html_report {
+    // Calculating subtotals
+    subtotals = [];
+    for order product <- order_detail {
+      customer = customer_id(order);
+      date = order_date(order);
+      year = year(date);
+      quarter = quarter(date);
+      subtotal = subtotal(order, product);
+      subtotals = accumulate(subtotals, product, customer,
+                             year, quarter-1, subtotal);
+    }
+
+    // Sorting and reshuffling the dataset
+    dataset = sort([
+      name(ct) ->
+        sort([
+          product_name(p) ->
+            sort([
+              company_name(c) ->
+                sort([y -> (seq(qs, 4, "-")) : y qs <- yqs])
+              : c yqs <- cyqs
+            ])
+          : p cyqs <- pcyqs
+        ])
+      : ct pcyqs <- group_by(subtotals, category_id($))
+    ]);
+
+    // Generating the HTML report
+    classes = ("category", "product", "customer", "year", "number");
+    options = (indent_class: "indent");
+    html_table = format_html(flatten(dataset, 2), classes, options);
+    return append(html_text(html_table), "\n");
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  Float total(ProductId p) = sum(subtotal(o, p) : o <- order_detail(?, p));
+
+
+  (String, (String, Float, Float, Float)*)*
+  top_grossing_products_by_category(Int percentage) =
+    sort([name(c) -> top_grossing_products(c, percentage) : c <- category]);
+
+
+  (String, Float, Float, Float)*
+  top_grossing_products(CategoryId category, Int percentage) {
+    // Total revenues for each product in this category
+    revenues = [(p, total(p)) : p <- category_id(?, category)];
+
+    // Sorting by revenues, in descending order
+    revenues = sort_by(revenues, -$(1));
+
+    // Total revenues for the entire category
+    total = sumf((r : _, r <- revenues));
+
+    // Revenues for each product as a fraction of the category total
+    percentages = (r / total : _, r <- revenues);
+
+    // cumulative_percentages(i) is the sum of the revenues (in percentage)
+    // of the first i+1 top grossing product
+    cumulative_percentages = partial_sums(percentages);
+
+    // Calculating how many products to include to reach the given percentage
+    count_lower = countl(cumulative_percentages, 100 * $ < percentage);
+    count = min(count_lower + 1, |cumulative_percentages|);
+
+    // Putting all the required information together
+    return (
+      (product_name(p), r, percentages(i), cumulative_percentages(i))
+      : p, r @ i <- take(revenues, count)
+    );
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  (String, (String, (Date, Int, Float)*)*)* last_orders_for_discontinued_products =
+    sort([
+      product_name(p) -> os
+      : p <- discontinued(?, true), os = last_orders(p), os != ()
+    ]);
+
+
+  (String, (Date, Int, Float)*)* last_orders(ProductId product) {
+    // Orders that include the given product
+    orders = [o : o <- order_detail(?, product)];
+
+    // Returning the empty sequence if there are no orders
+    return () if orders == [];
+
+    // Filtering out orders placed more than a year months before the last one
+    threshold_date = max([order_date(o) : o <- orders]) - 365;
+    orders = [o : o <- orders, order_date(o) >= threshold_date];
+
+    // Grouping orders by customer
+    orders = by(orders, customer_id($));
+
+    // Taking each customer's three most recent orders, sorted by date
+    orders = [
+      c -> take(reverse(sort_by(os, order_date($))), 3)
+      : c os <- orders, |os| > 1
+    ];
+
+    // Putting all the required information together
+    return sort([
+      company_name(c) ->
+        ((order_date(o), quantity(o, product), discount(o, product)) : o <- os)
+      : c os <- orders
+    ]);
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type SalesTree  = ( first_name:   String,
+                    last_name:    String,
+                    sales:        Float,
+                    total_sales:  Maybe[Float],
+                    subordinates: SalesTree*
+                  );
+
+using Northwind {
+  // Total value of an employee's sales
+  Float sales(EmployeeId employee) = sum(total(o) : o <- employee_id(?, employee));
+
+
+  // The total value of an employee's sales and those of all their subordinates
+  Float total_sales(EmployeeId employee) =
+    sales(employee) + sum(total_sales(s) : s <- reports_to(?, employee));
+
+
+  // For each top-level employee, the total value of his sales and
+  // those of all their subordinates, in a hierarchical format
+  SalesTree* sales_trees {
+    // Retrieving all top-level employees that don't report to anyone
+    top_managers = [e : e <- employee, not reports_to(e, _)];
+    // Sorting them by last and first name
+    top_managers = sort_by(top_managers, last_name($), first_name($));
+    // Calculating their and their subordinates' sales data
+    return (sales_tree(e) : e <- top_managers);
+  }
+
+
+  // Sales data of an employee and all their subordinates
+  SalesTree sales_tree(EmployeeId employee) {
+    // Searching for all employees who report directly to the current one
+    subordinates = [s : s <- reports_to(?, employee)];
+    // Sorting them by last and first name
+    subordinates = sort_by(subordinates, last_name($), first_name($));
+    // Packing everything together
+    return (
+      first_name:   first_name(employee),
+      last_name:    last_name(employee),
+      sales:        sales(employee),
+      total_sales:  if subordinates != ()
+                      then just(total_sales(employee))
+                      else nothing,
+      subordinates: (sales_tree(s) : s <- subordinates)
+    );
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+type ContactId = EmployeeId, SupplierId, ShipperId, CustomerId;
+
+
+using Northwind {
+  // Finding the owner(s) of a phone number
+  [ContactId] phone_owners(String phone_number) = [
+    id : id <- phone(?, phone_number)      |
+         id <- home_phone(?, phone_number) |
+         id <- fax(?, phone_number)
+  ];
+
+
+  // Basic contact information
+  (String, String) basic_info(ShipperId  id) = (company_name(id), "Shipper");
+  (String, String) basic_info(SupplierId id) = (company_name(id), "Supplier");
+  (String, String) basic_info(CustomerId id) = (company_name(id), "Customer");
+  (String, String) basic_info(EmployeeId id) = (first_name(id) & " " & last_name(id), "Employee");
+}

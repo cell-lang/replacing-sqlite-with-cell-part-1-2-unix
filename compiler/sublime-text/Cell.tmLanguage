@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>fileTypes</key>
+	<array>
+		<string>cell</string>
+	</array>
+	<key>name</key>
+	<string>Cell</string>
+	<key>patterns</key>
+	<array>
+		<dict>
+			<key>comment</key>
+			<string>Integer numbers</string>
+			<key>match</key>
+			<string>\b(\d+)</string>
+			<key>name</key>
+			<string>constant.numeric</string>
+		</dict>
+		<dict>
+			<key>comment</key>
+			<string>Comments</string>
+			<key>match</key>
+			<string>//.*$</string>
+			<key>name</key>
+			<string>comment.source</string>
+		</dict>
+		<dict>
+			<key>comment</key>
+			<string>Action comments</string>
+			<key>match</key>
+			<string>\#\#.*$</string>
+			<key>name</key>
+			<string>comment.source</string>
+		</dict>
+		<dict>
+			<key>comment</key>
+			<string>Labels</string>
+			<key>match</key>
+			<string>([a-z][a-z0-9_]*:)</string>
+			<key>name</key>
+			<string>label</string>
+		</dict>
+		<dict>
+			<key>comment</key>
+			<string>Keywords</string>
+			<key>match</key>
+			<string>\b(after|and|apply|assert|assume|break|class|delete|do|elapsed|else|every|fail|false|for|if|implicit|insert|let|loop|match|not|or|print|protocol|reactive|return|sans|schema|set|since|super|then|this|true|type|typevar|undefined|unique|update|using|volatile|when|while)\b</string>
+			<key>name</key>
+			<string>keyword</string>
+		</dict>
+		<dict>
+			<key>comment</key>
+			<string>Strings</string>
+			<key>match</key>
+			<string>\"[^\"]*\"</string>
+			<key>name</key>
+			<string>string</string>
+		</dict>
+		<dict>
+			<key>comment</key>
+			<string>Type variables</string>
+			<key>match</key>
+			<string>([:@][A-Z])([a-zA-Z0-9]*)</string>
+			<key>name</key>
+			<string>storage.typevar</string>
+		</dict>
+		<dict>
+			<key>comment</key>
+			<string>Type variables</string>
+			<key>match</key>
+			<string>([A-Z])([a-zA-Z0-9]*)\'</string>
+			<key>name</key>
+			<string>storage.typevar</string>
+		</dict>
+		<dict>
+			<key>comment</key>
+			<string>Type names</string>
+			<key>match</key>
+			<string>([A-Z])([a-zA-Z0-9]*)</string>
+			<key>name</key>
+			<string>storage.type</string>
+		</dict>
+		<dict>
+			<key>comment</key>
+			<string>Symbol literals</string>
+			<key>match</key>
+			<string>:([a-z0-9_]+)</string>
+			<key>name</key>
+			<string>constant.language</string>
+		</dict>
+		<dict>
+			<key>comment</key>
+			<string>Derived literals</string>
+			<key>match</key>
+			<string>\`[^\`]*\`</string>
+			<key>name</key>
+			<string>entity.name.tag</string>
+		</dict>
+	</array>
+	<key>scopeName</key>
+	<string>source.cell</string>
+	<key>uuid</key>
+	<string>fcdbaa74-fc82-4df0-8598-b18439669d1b</string>
+</dict>
+</plist>

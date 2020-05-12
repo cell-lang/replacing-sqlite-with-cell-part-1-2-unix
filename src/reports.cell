@@ -1,0 +1,147 @@
+type CellValue = blank, Int, Float, String;
+
+type Table = CellValue**;
+type Report = Table, (CellValue, Report)*;
+
+type RepGenOpts = (indent_class: String?);
+
+////////////////////////////////////////////////////////////////////////////////
+
+Bool is_table(Report report) {
+  return true if report == ();
+  first_item = report(0);
+  is_nested = |first_item| == 2 and not first_item(1) :: CellValue;
+  return not is_nested;
+}
+
+Bool all_items_are_nested_tables(Report report) {
+  for item <- report {
+    is_nested_table = match (item)
+      (_, () r?)  = is_table(r),
+      _           = false;
+    return false if not is_nested_table;
+  }
+  return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+HtmlTable format_html(Report report, String* classes, RepGenOpts options) {
+  rows = format_rows(report, if classes != () then classes else (""), 0, width(report), options);
+  return table(rows);
+
+
+  HtmlTr* format_rows(Report report, String+ classes, Int indent, Int width, RepGenOpts options) {
+    return () if report == ();
+    first_item = report(0);
+    is_nested = |first_item| == 2 and not first_item(1) :: CellValue;
+    if is_nested {
+      report_copy = (
+        match (item)
+          (_, ()) = item,
+          _       = undefined
+        : item <- report
+      );
+      return format_report_rows(report_copy, classes, indent, width, options);
+    }
+    else {
+      fail if not report :: Table;
+      return format_table_rows(report, classes, indent, options);
+    }
+  }
+
+
+  HtmlTr* format_table_rows(Table table, String+ classes, Int indent, RepGenOpts options) {
+    html_rows = ();
+    for row @ i <- table {
+      indent_class = if options.indent_class? then options.indent_class else "";
+      html_row = (td(indent_class, "") : _ < indent);
+      for cell @ j <- row {
+        cls = if cell != :blank
+          then if j < |classes| then classes(j) else classes(|classes| - 1)
+          else "";
+        html_cell = td(cls, html_text(cell));
+        html_row = (html_row | html_cell);
+      }
+      html_rows = (html_rows | tr(html_row));
+    }
+    return html_rows;
+  }
+
+
+  HtmlTr* format_report_rows((CellValue, Report)* report, String+ classes, Int indent, Int width, RepGenOpts options) {
+    indent_class = if options.indent_class? then options.indent_class else "";
+    html_rows = ();
+    for v, r <- report {
+      html_row = (td(indent_class, "") : _ < indent);
+      html_row = (html_row | td(width-indent, if v != :blank then classes(0) else "", html_text(v)));
+      html_rows = (html_rows | tr(html_row));
+      html_rows = html_rows & format_rows(r, ne_drop(classes), indent+1, width, options);
+    }
+    return html_rows;
+  }
+
+
+  Int width(Report report) {
+    ws = (
+      match (item)
+        (_, () r?) = 1 + width(r),
+        _          = |item|
+      : item <- report
+    );
+    return if ws != () then max(ws) else 0;
+  }
+
+
+  String+ ne_drop(String+ strs) {
+    tail = drop(strs, 1);
+    return if tail != () then tail else strs;
+  }
+
+  //////////////////////////////////////////////////////////////////////////////
+
+  String html_text(<blank>) = "";
+
+  String html_text(Int value) = _print_(value);
+
+  String html_text(Float value) {
+    return "-" & html_text(-value) if value < 0.0;
+    rounded = value + 0.005;
+    integral = _round_(value);
+    str = _print_(integral) & ".";
+    fraction = _round_(100 * (value - integral));
+    fraction = 99 if fraction > 99;
+    str = str & _print_(fraction / 10) & _print_(_mod_(fraction, 10));
+    return str;
+  }
+
+  String html_text(String str) {
+    return str; ## SHOULD BE ESCAPED;
+  }
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+Report flatten(Report report, Int repeats) {
+  r = report;
+  for repeats
+    r = flatten(r);
+  return r;
+}
+
+
+Report flatten(Report report) {
+  return report if is_table(report);
+
+  if all_items_are_nested_tables(report) {
+    fail if not report :: (CellValue, Table)+;
+    return join((((if i == 0 then v else :blank) & r : r @ i <- t) : v, t <- report));
+  }
+
+  return (
+    match (item)
+      (h?, () r?) = (h, flatten(r)),
+      _           = undefined
+    : item <- report
+  );
+}

@@ -1,0 +1,38 @@
+// 'initializing' means that we're still waiting for the first reading,
+// and that the wait has not been exceedingly long
+// 'unknown' means we've not received any information about the state of
+// the sensor in a while, and that it's time to start worring about it
+// 'submerged(true/false)' indicates whether the sensor is submerged,
+// and that it seems to be working fine
+type WaterSensorState = initializing, unknown, submerged(Bool);
+
+
+reactive WaterSensor raw_reading -> sensor_state {
+  input:
+    raw_reading* : Maybe[Bool];
+
+  output:
+    sensor_state : WaterSensorState;
+
+  state:
+    sensor_state : WaterSensorState = :initializing;
+
+  rules:
+    // good_reading is a discrete signal defined as the value
+    // carried by raw_reading when the latter is active and
+    // not equal to :nothing
+    good_reading := value(raw_reading) if raw_reading != :nothing;
+
+    // too_long_without_readings is a continuous boolean
+    // signal that is true only if good_reading has been
+    // dormant for at least 30 seconds
+    too_long_without_readings = 30s sans good_reading;
+
+    // The state variable sensor_state is set to submerged(Bool)
+    // whenever a valid reading from the sensor comes in
+    sensor_state = :submerged(good_reading);
+
+    // The state variable sensor_state is set to :unknown if
+    // there hasn't been any valid reading in the last 30 seconds
+    sensor_state = :unknown when too_long_without_readings;
+}

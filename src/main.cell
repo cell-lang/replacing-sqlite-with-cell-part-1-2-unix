@@ -1,0 +1,241 @@
+Int Main(String* args) {
+  northwind : Northwind;
+
+  if |args| != 1 {
+    Print("Usage: run-northwind-queries <input dataset>");
+    return 1;
+  }
+
+  // Loading the dataset
+  ok = Load(northwind, args(0));
+  if not ok {
+    Print("Failed to load database state from " & args(0) & "\n");
+    err = Error(northwind);
+    Print(err);
+    Print("\n");
+    return 1;
+  }
+
+  // Sorted employees' names
+  for id, first_name, last_name <- northwind.sorted_employees_names {
+    Print(
+      padl(_print_(untag(id)), 2) & "  " &
+      padr(first_name, 8) & "  " &
+      padr(last_name, 9) & "\n"
+    );
+  }
+  Print("\n\n");
+
+  // Orders' totals
+  count = 0;
+  for row <- northwind.orders_totals {
+    if count < 20 {
+      Print(
+        _print_(untag(row.order_id)) & "  " &
+        padl(printed(row.total), 8) & "\n"
+      );
+    }
+    count = count + 1;
+  }
+  if count > 20
+    Print("...\n");
+  Print("\n\n");
+
+  // Shipped orders' totals
+  count = 0;
+  for date, order_id, total <- northwind.shipped_orders_totals(`1997-01-01`, `1997-12-31`) {
+    if count < 20 {
+      Print(
+        printed(date) & "  " &
+        _print_(untag(order_id)) & "  " &
+        padl(printed(total), 8) & "\n"
+      );
+    }
+    count = count + 1;
+  }
+  if count > 20
+    Print("...\n");
+  Print("\n\n");
+
+  // Quarterly orders
+  count = 0;
+  for category_name, sales_by_product <- northwind.quarterly_orders {
+    if count < 80 {
+      Print(category_name & "\n");
+      for product_name, sales_by_customer <- sales_by_product {
+        if count < 80 {
+          Print("  " & product_name & "\n");
+          for company_name, sales_by_year <- sales_by_customer {
+            if count < 80 {
+              first_year = true;
+              for year, subtotals <- sales_by_year {
+                Print(
+                  "    " & padr(if first_year then company_name else "", 34) &
+                  "  " & _print_(year) & "  "
+                );
+                for st <- subtotals
+                  Print(padl(printed(st), 10));
+                Print("\n");
+                first_year = false;
+                count = count + 1;
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+  if count > 80
+    Print("...\n");
+  Print("\n\n");
+
+  // Top grossing products by category
+  for category_name, products_revenues <- northwind.top_grossing_products_by_category(90) {
+    Print(category_name & "\n");
+    for product_name, revenues, percentage, cumulative_percentage <- products_revenues
+      Print(
+        "  " & padr(product_name, 32) & "  " &
+        padl(printed(revenues), 9) & "  " &
+        printed(percentage) & "  " &
+        printed(cumulative_percentage) & "\n"
+      );
+  }
+  Print("\n\n");
+
+  // Last orders for discontinued products
+  for product_name, last_customers <- northwind.last_orders_for_discontinued_products {
+    Print(product_name & "\n");
+    for customer_name, last_orders <- last_customers
+      for date, quantity, discount @ i <- last_orders
+        Print(
+          "  " & padr(if i == 0 then customer_name else "", 28) & "  " &
+          printed(date) & "  " & padl(_print_(quantity), 3) & "  " & printed(discount) & "\n"
+        );
+  }
+  Print("\n\n");
+
+  for sales_tree <- northwind.sales_trees
+    PrintSalesTree(sales_tree, 0);
+  Print("\n\n");
+
+  report = report_header & northwind.quarterly_orders_html_report & "</body>\n</html>\n";
+  ok = FileWrite("tmp/report.html", value_unsafe(utf8_encode(untag(report))));
+  if ok
+    Print("The quarterly orders report has been saved to tmp/report.html\n\n");
+  else
+    Print("Could not save the quarterly orders report to tmp/report.html\n\n");
+
+  result = northwind.my_own_query;
+  if result :: String
+    Print(result & "\n\n");
+  else
+    Print(_print_(result) & "\n\n");
+
+  return 0;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+PrintSalesTree(SalesTree sales_tree, Int indentation) {
+  name_field = string((` ` : _ < indentation)) & sales_tree.first_name & " " & sales_tree.last_name;
+  Print(padr(name_field, 20));
+  Print(padl(printed(sales_tree.sales), 10));
+  if sales_tree.total_sales != nothing
+    Print(padl(printed(value(sales_tree.total_sales)), 12));
+  Print("\n");
+  for s <- sales_tree.subordinates
+    PrintSalesTree(s, indentation + 2);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+String printed(Date date) = take(drop(_print_(date), 1), 10);
+
+String printed(Float value) {
+  return "-" & printed(-value) if value < 0.0;
+  rounded = value + 0.005;
+  integral = _round_(value);
+  str = _print_(integral) & ".";
+  fraction = _round_(100 * (value - integral));
+  fraction = 99 if fraction > 99;
+  str = str & _print_(fraction / 10) & _print_(_mod_(fraction, 10));
+  return str;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+String padl(String str, Nat min_len) = string((` ` : _ < min_len - length(str))) & str;
+String padr(String str, Nat min_len) = str & string((` ` : _ < min_len - length(str)));
+
+////////////////////////////////////////////////////////////////////////////////
+
+String report_header =
+  "<!DOCTYPE html>\n" &
+  "<html>\n" &
+  "<head>\n" &
+  "  <title>Quarterly orders report</title>\n" &
+  "  <style type='text/css'>\n" &
+  "    table {\n" &
+  "      font-family: 'Lucida Console', Monaco, monospace;\n" &
+  "      border: 0px;\n" &
+  "      border-spacing: 0;\n" &
+  "    }\n" &
+  "\n" &
+  "    tr {\n" &
+  "      border: 0px;\n" &
+  "    }\n" &
+  "\n" &
+  "    td {\n" &
+  "      font-style: italic;\n" &
+  "      /*border: 1px solid #ccc;*/\n" &
+  "      /*border: 1px;*/\n" &
+  "      text-align: left;\n" &
+  "      padding: 4px;\n" &
+  "      white-space: nowrap;\n" &
+  "    }\n" &
+  "\n" &
+  "    tr:nth-child(even) .year {\n" &
+  "      background-color: #efefef;\n" &
+  "    }\n" &
+  "\n" &
+  "    tr:nth-child(odd) .year {\n" &
+  "      background-color: #e0eaec;\n" &
+  "    }\n" &
+  "\n" &
+  "    tr:nth-child(even) .number {\n" &
+  "      background-color: #efefef;\n" &
+  "    }\n" &
+  "\n" &
+  "    tr:nth-child(odd) .number {\n" &
+  "      background-color: #e0eaec;\n" &
+  "    }\n" &
+  "\n" &
+  "    .category {\n" &
+  "      background-color: #cfe2f3;\n" &
+  "    }\n" &
+  "\n" &
+  "    .product {\n" &
+  "      background-color: #c9daf8;\n" &
+  "    }\n" &
+  "\n" &
+  "    .customer {\n" &
+  "      background-color: #e5e0f1;\n" &
+  "      padding-right: 2em;\n" &
+  "    }\n" &
+  "\n" &
+  "    .indent {\n" &
+  "      padding: 1em 2em;\n" &
+  "    }\n" &
+  "\n" &
+  "    .year {\n" &
+  "      padding-left: 1em;\n" &
+  "      width: 4em;\n" &
+  "    }\n" &
+  "\n" &
+  "    .number {\n" &
+  "      text-align: right;\n" &
+  "      width: 4em;\n" &
+  "    }\n" &
+  "  </style>\n" &
+  "</head>\n" &
+  "<body>";

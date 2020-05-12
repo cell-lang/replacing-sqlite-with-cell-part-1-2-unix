@@ -1,0 +1,7 @@
+using Northwind {
+  Any my_own_query {
+    // Replace the body of this method with your own query. The result
+    // will be printed automatically when your recompile and run the program
+    return "Now open src/my-own-queries.cell and write your own query there";
+  }
+}

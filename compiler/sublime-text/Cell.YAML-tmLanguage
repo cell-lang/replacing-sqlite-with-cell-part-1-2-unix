@@ -1,0 +1,57 @@
+# [PackageDev] target_format: plist, ext: tmLanguage
+---
+name: Cell
+scopeName: source.cell
+fileTypes: [cell]
+uuid: fcdbaa74-fc82-4df0-8598-b18439669d1b
+
+patterns:
+- comment:  Integer numbers
+  name:     constant.numeric
+  match:    \b(\d+)
+
+- comment:  Comments
+  name:     comment.source
+  match:    //.*$
+
+- comment:  Action comments
+  name:     comment.source
+  match:    \#\#.*$
+
+- comment:  Labels
+  name:     label
+  match:    ([a-z][a-z0-9_]*:)
+
+- comment:  Keywords
+  name:     keyword
+  match:    \b(after|and|apply|assert|assume|break|class|delete|do|elapsed|else|every|fail|false|for|if|implicit|insert|let|loop|match|not|or|print|protocol|reactive|return|sans|schema|set|since|super|then|this|true|type|typevar|undefined|unique|update|using|volatile|when|while)\b
+
+- comment:  Strings
+  name:     string
+  match:    \"[^\"]*\"
+
+- comment:  Type variables
+  name:     storage.typevar
+  match:    ([:@][A-Z])([a-zA-Z0-9]*)
+
+- comment:  Type variables
+  name:     storage.typevar
+  match:    ([A-Z])([a-zA-Z0-9]*)\'
+
+- comment:  Type names
+  name:     storage.type
+  match:    ([A-Z])([a-zA-Z0-9]*)
+
+- comment:  Symbol literals
+  name:     constant.language
+  match:    :([a-z0-9_]+)
+
+- comment:  Derived literals
+  name:     entity.name.tag
+  # name:     entity.other.attribute-name
+  match:    \`[^\`]*\`
+
+...
+
+
+

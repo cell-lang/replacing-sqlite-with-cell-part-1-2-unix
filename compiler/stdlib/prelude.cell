@@ -1,0 +1,360 @@
+type Symbol         = <+>;
+type Int            = <*..*>;
+type Float          = <!>;
+
+type Any            = Symbol, Int, Float, Any*, [Any], [Any, Any], [Any, Any, Any], <+>(Any);
+
+type Bool           = true, false;
+type True           = true;
+type False          = false;
+
+type Nat            = <0..*>;
+type NzNat          = <1..*>;
+
+type Bit            = <0..1>;
+type Byte           = <0..255>;
+type Int32          = < -2147483648 .. 2147483647 >;
+
+type String         = string(Nat*);
+type Ascii          = string(<0..127>*);
+
+type Nothing        = nothing;
+type Just[T]        = just(T);
+type Maybe[T]       = Nothing, Just[T];
+
+type Success[T]     = success(T);
+type Failure[T]     = failure(T);
+type Result[R, E]   = success(R), failure(E);
+
+type Date           = date(Int);
+type Time           = time(Int);
+
+////////////////////////////////////////////////////////////////////////////////
+
+protocol Ord:
+  (_<_) : Ord, Ord -> Bool;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Int (-_) (Int n) = _neg_(n);
+
+Int (_+_) (Int a, Int b) = _add_(a, b);
+Int (_-_) (Int a, Int b) = _sub_(a, b);
+Int (_*_) (Int a, Int b) = _mult_(a, b);
+Int (_/_) (Int a, Int b) = _div_(a, b);
+
+Int mod(Int a, Int b) = _mod_(a, b);
+
+Bool (_<_)  (Int a, Int b) = _lt_(a, b);
+Bool (_<=_) (Int a, Int b) = _le_(a, b);
+Bool (_>_)  (Int a, Int b) = _lt_(b, a);
+Bool (_>=_) (Int a, Int b) = _le_(b, a);
+
+////////////////////////////////////////////////////////////////////////////////
+
+Int bwand(Int a, Int b) = _and_(a, b);
+Int bwor(Int a, Int b)  = _or_(a, b);
+Int xor(Int a, Int b)   = _xor_(a, b);
+
+////////////////////////////////////////////////////////////////////////////////
+
+Nat nat(Int n) = if n :: Nat then n else undefined;
+
+Nat abs(Int n) = if n :: Nat then n else nat(-n);
+
+Int sum(Int* ns) {
+  res = 0;
+  for n <- ns
+    res = res + n;
+  return res;
+}
+
+Bit bit(Bool b) = if b then 1 else 0;
+
+//////////////////////////////////////////////////////////////////////////////
+
+Float (-_) (Float x) = _fneg_(x);
+
+Float (_+_) (Float x, Float y) = _fadd_(x, y);
+Float (_+_) (Int   x, Float y) = _fadd_(_float_(x), y);
+Float (_+_) (Float x, Int   y) = _fadd_(x, _float_(y));
+
+Float (_-_) (Float x, Float y) = _fsub_(x, y);
+Float (_-_) (Int   x, Float y) = _fsub_(_float_(x), y);
+Float (_-_) (Float x, Int   y) = _fsub_(x, _float_(y));
+
+Float (_*_) (Float x, Float y) = _fmult_(x, y);
+Float (_*_) (Int   x, Float y) = _fmult_(_float_(x), y);
+Float (_*_) (Float x, Int   y) = _fmult_(x, _float_(y));
+
+Float (_/_) (Float x, Float y) = _fdiv_(x, y);
+Float (_/_) (Int   x, Float y) = _fdiv_(_float_(x), y);
+Float (_/_) (Float x, Int   y) = _fdiv_(x, _float_(y));
+
+Bool (_<_)  (Float x, Float y) = _flt_(x, y);
+Bool (_<_)  (Int   x, Float y) = _flt_(_float_(x), y);
+Bool (_<_)  (Float x, Int   y) = _flt_(x, _float_(y));
+
+Bool (_<=_) (Float x, Float y) = _fle_(x, y);
+Bool (_<=_) (Int   x, Float y) = _fle_(_float_(x), y);
+Bool (_<=_) (Float x, Int   y) = _fle_(x, _float_(y));
+
+Bool (_>_)  (Float x, Float y) = _flt_(y, x);
+Bool (_>_)  (Int   x, Float y) = _flt_(y, _float_(x));
+Bool (_>_)  (Float x, Int   y) = _flt_(_float_(y), x);
+
+Bool (_>=_) (Float x, Float y) = _fle_(y, x);
+Bool (_>=_) (Int   x, Float y) = _fle_(y, _float_(x));
+Bool (_>=_) (Float x, Int   y) = _fle_(_float_(y), x);
+
+Float (_^_) (Float x, Float y) = _fexp_(x, y);
+Float (_^_) (Int   x, Float y) = _fexp_(_float_(x), y);
+Float (_^_) (Float x, Int   y) = _fexp_(x, _float_(y));
+Float (_^_) (Int   x, Int   y) = _fexp_(_float_(x), _float_(y));
+
+Float sqrt(Float x) = _fsqrt_(x);
+Float sqrt(Int   x) = _fsqrt_(_float_(x));
+
+////////////////////////////////////////////////////////////////////////////////
+
+Ord min(Ord a, Ord b) = if a < b then a else b;
+Ord max(Ord a, Ord b) = if a < b then b else a;
+
+Ord min([+Ord] xs) {
+  min = any(xs);
+  for x <- xs
+    min = x if x < min;
+  return min;
+}
+
+Ord min(Ord+ xs) {
+  min = xs(0);
+  for x <- xs
+    min = x if x < min;
+  return min;
+}
+
+Ord max([+Ord] xs) {
+  max = any(xs);
+  for x <- xs
+    max = x if max < x;
+  return max;
+}
+
+Ord max(Ord+ xs) {
+  max = xs(0);
+  for x <- xs
+    max = x if max < x;
+  return max;
+}
+
+[T] max_by([T] set, (T -> Ord) key) {
+  return [] if set == [];
+  an_elt = any(set);
+  max_elts = (an_elt);
+  max_key = key(an_elt);
+  for elt <- set {
+    elt_key = key(elt);
+    if elt_key == max_key {
+      max_elts = (max_elts | elt);
+    }
+    else if max_key < elt_key {
+      max_elts = (elt);
+      max_key = elt_key;
+    }
+  }
+  return [elt : elt <- max_elts];
+}
+
+[T] min_by([T] set, (T -> Ord) key) {
+  return [] if set == [];
+  an_elt = any(set);
+  min_elts = (an_elt);
+  min_key = key(an_elt);
+  for elt <- set {
+    elt_key = key(elt);
+    if elt_key == min_key {
+      max_elts = (min_elts | elt);
+    }
+    else if elt_key < min_key {
+      min_elts = (elt);
+      min_key = elt_key;
+    }
+  }
+  return [elt : elt <- min_elts];
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+Nothing nothing = :nothing;
+
+Just[T] just(T x) = :just(x);
+
+T value(Just[T]) =
+  just(x?)  = x;
+
+T value_unsafe(Maybe[T]) =
+  just(x?)  = x,
+  _         = undefined;
+
+Maybe[T] maybe(T x, Bool cond) = if cond then :just(x) else nothing;
+
+T* values(Maybe[T]* maybe_seq) = (value(maybe_value) : maybe_value <- maybe_seq, maybe_value != nothing);
+
+Maybe[B] apply(Maybe[A] m, (A -> B) f) =
+  just(x?)  = just(f(x)),
+  nothing   = nothing;
+
+Maybe[B]* apply(Maybe[A]* ms, (A -> B) f) = (apply(m, f) : m <- ms);
+
+[Maybe[B]] apply([Maybe[A]] ms, (A -> B) f) = [apply(m, f) : m <- ms];
+
+////////////////////////////////////////////////////////////////////////////////
+
+Success[T] success(T r) = :success(r);
+Failure[T] failure(T e) = :failure(e);
+
+True  succeeded(Success[T]) = true;
+False succeeded(Failure[T]) = false;
+
+False failed(Success[T]) = false;
+True  failed(Failure[T]) = true;
+
+T result(Success[T] r) = untag(r);
+
+T error(Failure[T] r) = untag(r);
+
+////////////////////////////////////////////////////////////////////////////////
+
+() (_&_)((),    ())    = ();
+T+ (_&_)(T+ s,  ())    = s;
+T+ (_&_)((),    T+ s)  = s;
+T+ (_&_)(T+ s1, T+ s2) = {res = _cat_(s1, s2); return if res != () then res else undefined;};
+
+T* take(T* seq, Int count) = if |seq| > count then _slice_(seq, 0, count) else seq;
+T* drop(T* seq, Int count) = if |seq| > count then _slice_(seq, count, |seq| - count) else ();
+
+T* slice(T* seq, Int first, Int count) = _slice_(seq, first, count);
+
+T* reverse(T* seq) = _rev_(seq);
+
+T* join(T** seqs) {
+  res = ();
+  for s <- seqs
+    res = _cat_(res, s);
+  return res;
+}
+
+T* (_*_)(Nat count, T* seq) = {
+  res = ();
+  for i < count
+    res = _cat_(res, seq);
+  return res;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+
+[T] union([T] s1, [T] s2) = [x : x <- s1 | x <- s2];
+
+[T] intersection([T] s1, [T] s2)  = [e : e <- s1, s2(e)];
+
+[]   (_&_)([],      [])       = [];
+[+T] (_&_)([+T] s,  [])       = s;
+[+T] (_&_)([],      [+T] s)   = s;
+[+T] (_&_)([+T] s1, [+T] s2)  = [x : x <- s1 | x <- s2];
+
+[A] (_-_)([A] s1, [B] s2) = [e : e <- s1, not s2(e)];
+
+Bool disjoint([Any] s1, [Any] s2) = not (e <- s1 : s2(e));
+Bool subset([Any] s1, [Any] s2)   = not (e <- s1 : not s2(e));
+
+[T] union([[T]] sets) = [x : s <- sets, x <- s];
+
+T any([T] s) {
+  for e <- s
+    return e;
+  fail;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+[+A -> B] (_&_)([],             [+A -> B] map)  = map;
+[+A -> B] (_&_)([+A -> B] map,  [])             = map;
+[+A -> B] (_&_)([+A -> B] map1, [+A -> B] map2) = [k -> v : k v <- map1 | k v <- map2];
+
+[A -> B] merge([[A -> B]] maps) = [k -> v : m <- maps, k v <- m];
+[A -> B] merge([A -> B]* maps)  = [k -> v : m <- maps, k v <- m];
+
+////////////////////////////////////////////////////////////////////////////////
+
+[K -> [+V]] by([V] set, (V -> K) key) {
+  map : [K -> [+V]];
+
+  map = [];
+  for v <- set {
+    k = key(v);
+    subset = if map(k, _) then _insert_(map(k), v) else [v];
+    map = _put_(map, k, subset);
+  }
+  return map;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+T untag(<+>(T)) =
+  t?(v?) = v;
+
+////////////////////////////////////////////////////////////////////////////////
+
+String string(Nat* chs) = :string(chs);
+
+Nat length(String s) = |_untag_(s)|;
+
+Nat (_[_]) (String str, Int idx) = _untag_(str)(idx);
+
+String reverse(String s)              = string(reverse(_untag_(s)));
+String substr(String s, Int n, Int m) = string(_slice_(_untag_(s), n, m));
+
+String take(String s, Int count) = string(take(_untag_(s), count));
+String drop(String s, Int count) = string(drop(_untag_(s), count));
+
+String (_*_) (Nat len, String str) = string(len * _untag_(str));
+
+String (_&_) (String s1, String s2)   = string(_untag_(s1) & _untag_(s2));
+String append(String* ss)             = string(join((_untag_(s) : s <- ss)));
+
+String append(String* ss, String sep) {
+  sep_chs = _untag_(sep);
+  chs = ();
+  for s @ i <- ss {
+    chs = _cat_(chs, sep_chs) if i > 0;
+    chs = _cat_(chs, _untag_(s));
+  }
+  return :string(chs);
+}
+
+Bool (_<_)(String str1, String str2) = {
+  chs1 = _untag_(str1);
+  chs2 = _untag_(str2);
+  len1 = |chs1|;
+  len2 = |chs2|;
+  for i < min(len1, len2) {
+    ch1 = chs1(i);
+    ch2 = chs2(i);
+    if ch1 != ch2
+      return ch1 < ch2;
+  }
+  return len1 < len2;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+
+Bool (_<_) (Date d1, Date d2) = untag(d1) <  untag(d2);
+Bool (_>_) (Date d1, Date d2) = untag(d1) >  untag(d2);
+Bool (_<=_)(Date d1, Date d2) = untag(d1) <= untag(d2);
+Bool (_>=_)(Date d1, Date d2) = untag(d1) >= untag(d2);
+
+Bool (_<_) (Time t1, Time t2) = untag(t1) <  untag(t2);
+Bool (_>_) (Time t1, Time t2) = untag(t1) >  untag(t2);
+Bool (_<=_)(Time t1, Time t2) = untag(t1) <= untag(t2);
+Bool (_>=_)(Time t1, Time t2) = untag(t1) >= untag(t2);

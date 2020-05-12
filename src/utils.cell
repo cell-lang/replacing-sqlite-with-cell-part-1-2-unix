@@ -1,0 +1,81 @@
+Float sum(Float.. x)
+  Float s = x : s1 s2 -> s1 + s2;
+  return 0.0 | s;
+
+////////////////////////////////////////////////////////////////////////////////
+
+Int year(Date d) = year_month_day(d)(0);
+Int month(Date d) = year_month_day(d)(1);
+
+Int quarter(Date d) = 1 + (month(d) - 1) / 3;
+
+Date add_days(Date, Int days) =
+  date(d?) = :date(d + days);
+
+Date (_+_)(Date date, Int days) = :date(untag(date) + days);
+Date (_-_)(Date date, Int days) = :date(untag(date) - days);
+
+////////////////////////////////////////////////////////////////////////////////
+
+[K -> Float] accumulate([K -> Float] map, K key, Float amount) =
+  _put_(map, key, amount + get(map, key, 0.0));
+
+[X -> [Y -> Float]] accumulate([X -> [Y -> Float]] map, X key1, Y key2, Float amount) =
+  _put_(map, key1, accumulate(get(map, key1, []), key2, amount));
+
+[X -> [Y -> [Z -> Float]]] accumulate([X -> [Y -> [Z -> Float]]] map, X key1, Y key2, Z key3, Float amount) =
+  _put_(map, key1, accumulate(get(map, key1, []), key2, key3, amount));
+
+[W -> [X -> [Y -> [Z -> Float]]]] accumulate([W -> [X -> [Y -> [Z -> Float]]]] map, W key1, X key2, Y key3, Z key4, Float amount) =
+  _put_(map, key1, accumulate(get(map, key1, []), key2, key3, key4, amount));
+
+////////////////////////////////////////////////////////////////////////////////
+
+V get([K -> V] map, K key, V default) = if map(key, _) then map(key) else default;
+
+T get(T* seq, Int idx, T default) = if idx < |seq| then seq(idx) else default;
+
+////////////////////////////////////////////////////////////////////////////////
+
+[A -> [+B -> C]] group_by([B -> C] map, (B -> A) key) {
+  split_map : [A -> [+B -> C]];
+
+  split_map = [];
+  for k v <- map {
+    g = key(k);
+    submap = if split_map(g, _) then _put_(split_map(g), k, v) else [k -> v];
+    split_map = _put_(split_map, g, submap);
+  }
+  return split_map;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+Float sumf(Float* ns) {
+  sum = 0.0;
+  for n <- ns
+    sum = sum + n;
+  return sum;
+}
+
+Float* partial_sums(Float* xs) {
+  partial_sums : Float*;
+
+  partial_sums = (0.0 : _ < |xs|);
+  running_sum = 0.0;
+  for x @ i <- xs {
+    running_sum = running_sum + x;
+    partial_sums(i) := running_sum;
+  }
+  return partial_sums;
+}
+
+Nat countl(T* xs, (T -> Bool) p) {
+  for x @ i <- xs
+    return i if not p(x);
+  return |xs|;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+T* seq([Int -> T] map, Nat len, T default) = (if map(i, _) then map(i) else default : i < len);

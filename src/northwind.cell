@@ -1,0 +1,117 @@
+type RegionId    = region_id(Int);
+type TerritoryId = territory_id(Int);
+type CategoryId  = category_id(Int);
+type SupplierId  = supplier_id(Int);
+type EmployeeId  = employee_id(Int);
+type ShipperId   = shipper_id(Int);
+type CustomerId  = customer_id(String);
+type ProductId   = product_id(Int);
+type OrderId     = order_id(Int);
+
+
+schema Northwind {
+  region(RegionId)
+    description : String;
+
+  territory(TerritoryId)
+    region_id   : RegionId,
+    description : String;
+
+  region_id(_, r) -> region(r);
+
+  category(CategoryId)
+    name        : String,
+    description : String;
+
+  supplier(SupplierId)
+    company_name  : String,
+    contact_name  : String,
+    contact_title : String,
+    address       : String,
+    city          : String,
+    region_name   : String,
+    postal_code   : String,
+    country       : String,
+    phone         : String,
+    fax           : String,
+    home_page     : String;
+
+  employee(EmployeeId)
+    last_name           : String,
+    first_name          : String,
+    title               : String,
+    title_of_courtesy   : String,
+    birth_date          : Date,
+    hire_date           : Date,
+    address             : String,
+    city                : String,
+    region_name         : String,
+    postal_code         : String,
+    country             : String,
+    home_phone          : String,
+    extension           : String,
+    notes               : String,
+    reports_to?         : EmployeeId,
+    photo_path          : String,
+    salary              : Float,
+    employee_territory* : TerritoryId [unique];
+
+  reports_to(_, e) -> employee(e);
+  employee_territory(_, t) -> territory(t);
+
+  shipper(ShipperId)
+    company_name : String,
+    phone        : String;
+
+  customer(CustomerId)
+    company_name  : String,
+    contact_name  : String,
+    contact_title : String,
+    address       : String,
+    city          : String,
+    region_name   : String,
+    postal_code   : String,
+    country       : String,
+    phone         : String,
+    fax           : String;
+
+  product(ProductId)
+    product_name      : String,
+    supplier_id       : SupplierId,
+    category_id       : CategoryId,
+    quantity_per_unit : String,
+    unit_price        : Float,
+    units_in_stock    : Nat,
+    units_on_order    : Nat,
+    reorder_level     : Nat,
+    discontinued      : Bool;
+
+  supplier_id(_, s) -> supplier(s);
+  category_id(_, c) -> category(c);
+
+  order(OrderId)
+    customer_id      : CustomerId,
+    employee_id      : EmployeeId,
+    order_date       : Date,
+    required_date    : Date,
+    shipped_date?    : Date,
+    ship_via         : ShipperId,
+    freight          : Float,
+    ship_name        : String,
+    ship_address     : String,
+    ship_city        : String,
+    ship_region      : String,
+    ship_postal_code : String,
+    ship_country     : String;
+
+  customer_id(_, c) -> customer(c);
+  employee_id(_, e) -> employee(e);
+  ship_via(_, s) -> shipper(s);
+
+  order_detail(OrderId, ProductId)
+    item_unit_price : Float,
+    quantity        : Nat,
+    discount        : Float;
+
+  order_detail(o, p) -> order(o), product(p);
+}

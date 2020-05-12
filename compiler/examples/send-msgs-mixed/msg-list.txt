@@ -1,0 +1,8 @@
+// These messages will execute successfully
+login(user_id: 0, name: "emy")
+login(user_id: 1, name: "jake")
+login(user_id: 2, name: "sarah")
+login(user_id: 3, name: "paul")
+
+// This one will fail because of a duplicate username
+login(user_id: 4, name: "jake")

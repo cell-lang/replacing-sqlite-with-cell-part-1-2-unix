@@ -1,0 +1,42 @@
+type HtmlTd = td(content: Html, colspan: NzNat?, class: String?);
+type HtmlTr = tr(content: HtmlTd*);
+type HtmlTable = table(content: HtmlTr*, class: String?);
+
+type Html = String, HtmlTable;
+
+////////////////////////////////////////////////////////////////////////////////
+
+HtmlTd td(Html c) = td(content: c);
+HtmlTd td(Int s, Html c) = td(content: c, colspan: s if s :: NzNat);
+HtmlTd td(String l, Html c) = td(content: c, class: l if l != "");
+HtmlTd td(Int s, String l, Html c) = td(content: c, colspan: s if s :: NzNat, class: l if l != "");
+
+HtmlTr tr(HtmlTd* cs) = tr(content: cs);
+
+HtmlTable table(HtmlTr* c) = table(content: c);
+HtmlTable table(String l, HtmlTr* c) = table(content: c, class: l);
+
+////////////////////////////////////////////////////////////////////////////////
+
+String* html_text(String str) = (str);
+
+String* html_text(HtmlTable table) {
+  attrs = if table.class? then " class='" & table.class & "'" else "";
+  open_tag = "<table" & attrs & ">";
+  return (open_tag) & join((("  " & l : l <- html_text(r)) : r <- table.content)) & ("</table>");
+}
+
+String* html_text(HtmlTr row) {
+  data = join((("  " & l : l <- html_text(c)) : c <- row.content));
+  return ("<tr>") & data & ("</tr>");
+}
+
+String* html_text(HtmlTd cell) {
+  content = html_text(cell.content);
+  colspan_attr = if cell.colspan? then " colspan='" & _print_(cell.colspan) & "'" else "";
+  class_attr = if cell.class? then " class='" & cell.class & "'" else "";
+  open_tag = "<td" & colspan_attr & class_attr & ">";
+  return if |content| != 1
+    then (open_tag) & content & ("</td>")
+    else (open_tag & content(0) & "</td>");
+}

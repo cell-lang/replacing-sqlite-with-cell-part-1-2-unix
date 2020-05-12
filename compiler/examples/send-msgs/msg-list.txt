@@ -1,0 +1,6 @@
+( incr,
+  incr,
+  reset(5),
+  decr,
+  decr
+)

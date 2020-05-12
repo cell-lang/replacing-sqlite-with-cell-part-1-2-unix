@@ -1,0 +1,91 @@
+// initializing means that we're still waiting for the first reading,
+// and that the wait has not been exceedingly long
+// unknown means we've not received any information about the state of
+// the sensor in a while, and that it's time to start worring about it
+// submerged(true/false) indicates whether the sensor is submerged,
+// and that it seems to be working fine
+type WaterSensorState = initializing, unknown, submerged(Bool);
+
+
+reactive WaterSensor raw_reading -> sensor_state {
+  input:
+    raw_reading* : Maybe[Bool];
+
+  output:
+    sensor_state : WaterSensorState;
+
+  state:
+    sensor_state : WaterSensorState = :initializing;
+
+  rules:
+    // good_reading is a discrete signal defined as the value
+    // carried by raw_reading when the latter is active and
+    // not equal to :nothing
+    good_reading := value(raw_reading) if raw_reading != :nothing;
+
+    // too_long_without_readings is a continuous boolean
+    // signal that is true only if good_reading has been
+    // dormant for at least 30 seconds
+    too_long_without_readings = 30s sans good_reading;
+
+    // The state variable sensor_state is set to submerged(Bool)
+    // whenever a valid reading from the sensor comes in
+    sensor_state = :submerged(good_reading);
+
+    // The state variable sensor_state is set to :unknown if
+    // there hasn't been any valid reading in the last 30 seconds
+    sensor_state = :unknown when too_long_without_readings;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
+
+// The first field is the reading from the sensor
+// The second one is the time that has passed since the last
+// reading, or since initialization for the first reading
+// The third one is the sequence of values sensor_state is
+// expected to have after each update step
+(Maybe[Bool], Nat, WaterSensorState+)* water_sensor_test_data = (
+  (just(false), 40000, (:unknown, :submerged(false))),
+  (nothing,     10000, (:submerged(false))),
+  (nothing,     10000, (:submerged(false))),
+  (nothing,     10000, (:unknown)),
+  (just(true),  10000, (:submerged(true))),
+  (just(false), 50000, (:unknown, :submerged(false)))
+);
+
+
+Main(String* args) {
+  water_sensor : WaterSensor;
+
+  // Initialization
+  done = apply water_sensor;
+
+  for reading, time, exp_states <- water_sensor_test_data {
+    // Setting the value of the only input
+    water_sensor.raw_reading = reading;
+
+    // Setting the amount of time that has passed since
+    // the last update, or since the automaton was started
+    elapsed water_sensor time;
+
+    // Updating water_sensor and recording all
+    // the intermediate values of the only output
+    states = ();
+    do
+      done = apply water_sensor;
+      states = (states | water_sensor.sensor_state);
+    while not done;
+
+    // Checking that the states of the sensor are
+    // the expected ones
+    if states != exp_states {
+      Print("Error\n");
+      print states;
+      print exp_states;
+      return;
+    }
+    else
+      Print("OK\n");
+  }
+}

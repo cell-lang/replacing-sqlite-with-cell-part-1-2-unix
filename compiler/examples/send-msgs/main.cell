@@ -1,0 +1,101 @@
+schema Counter {
+  value:   Int = 0;
+  updates: Int = 0;
+}
+
+type CounterMsg = incr, decr, reset, reset(Int);
+
+Counter.CounterMsg {
+  set value = new_value(this);
+  set updates = updates + 1;
+}
+
+using Counter {
+  Int new_value(CounterMsg msg) =
+    incr      = value + 1,
+    decr      = value - 1,
+    reset     = 0,
+    reset(n?) = n;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+Int Main(String* args) {
+  instance : Counter;
+
+  // Checking the argument list
+  if |args| != 3 {
+    Print("Usage: send-msgs <initial state> <message list> <final state>\n");
+    return 1;
+  }
+  init_state_fname, msg_list_fname, final_state_fname = args;
+
+  // Loading the initial state
+  ok = Load(instance, init_state_fname);
+  if not ok {
+    err = Error(instance);
+    Print("Attempt to load the initial state of the automaton failed\n");
+    if err != ""
+      Print(err & "\n");
+    return 1;
+  }
+
+  // Reading and checking the message list
+  res = ReadValueFromFile(msg_list_fname);
+  return 1 if res == nothing;
+  msg_list = value(res);
+  if not msg_list :: CounterMsg* {
+    if msg_list :: Any* {
+      for msg @ i <- msg_list
+        if not msg :: CounterMsg {
+          Print("Element " & _print_(i) & " in " & msg_list_fname & " is not a valid message:\n");
+          Print(_print_(msg) & "\n");
+          return 1;
+        }
+    }
+    Print("The file " & msg_list_fname & " does not contain a sequence of messages\n");
+    return 1;
+  }
+
+  // Sending all messages in the list
+  for msg @ i <- msg_list {
+    ok = Send(instance, msg);
+    if not ok {
+      err = Error(instance);
+      Print("Processing of message number " & _print_(i) & " failed\n");
+      if err != ""
+        Print(err & "\n");
+      return 1;
+    }
+  }
+
+  // Saving the final state
+  ok = Save(instance, final_state_fname);
+  if not ok {
+    err = Error(instance);
+    Print("Could not write to file " & final_state_fname & "\n");
+    if err != ""
+      Print(err & "\n");
+    return 1;
+  }
+
+  return 0;
+}
+
+Maybe[Any] ReadValueFromFile(String fname) {
+  read_res = FileRead(fname);
+  if read_res == nothing {
+    Print("Cannot read file " & fname & "\n");
+    return nothing;
+  }
+
+  parse_res = _parse_(string(value(read_res)));
+  if failed(parse_res) {
+    Print("File " & fname & " does not contain a valid Cell value\n");
+    print string(value(read_res));
+    print parse_res;
+    return nothing;
+  }
+
+  return just(result(parse_res));
+}
